@@ -42,7 +42,8 @@
     "non-custodial",
     "self-custodial",
     "viem",
-    "privy"
+    "privy",
+    "kohaku"
   ],
   "repository": {
     "type": "git",

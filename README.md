@@ -100,6 +100,41 @@ up the 12-word phrase before receiving funds.
 
 See [THREAT_MODEL.md](./THREAT_MODEL.md) for the full threat model.
 
+## Works with Kohaku
+
+`derivault` works alongside the Ethereum Foundation's Kohaku privacy SDK, the
+`@kohaku-eth/*` npm packages, but sits upstream of it. Kohaku is a wallet-level
+privacy SDK for protocols such as RAILGUN, ERC-5564 stealth addresses, and
+Privacy Pools. `derivault` is the non-custodial key-derivation layer for teams
+that are already building around embedded wallets such as Privy or passkeys and
+do not want to adopt a new wallet stack.
+
+The integration shape is to derive the user's privacy keys from the embedded
+wallet first, then pass the relevant key material to Kohaku's wallet-level
+protocol adapters.
+
+Illustrative only, not tested:
+
+```ts
+import { openKeyvault } from "derivault";
+// Conceptual import. Verify the exact API against Kohaku's current packages.
+import { createRailgunWallet } from "@kohaku-eth/railgun";
+
+const keyvault = await openKeyvault(source, { verifyDeterminism: true });
+
+const railgunWallet = await createRailgunWallet({
+  mnemonic: keyvault.railgunSeed.mnemonic,
+});
+
+// This is a standard ERC-5564 meta-address and can be used with ERC-5564
+// tooling, including Kohaku's stealth address support.
+const receivingMetaAddress = keyvault.stealthMetaAddress;
+```
+
+The exact Kohaku package APIs must be verified against the currently published
+`@kohaku-eth/*` packages before implementation. At the time of writing, Kohaku
+should be treated as unaudited, work-in-progress software.
+
 ## Determinism And Domain Separation
 
 The unlock message is part of the derivation domain. Its text, `appName`, chain
