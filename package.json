@@ -1,0 +1,67 @@
+{
+  "name": "derivault",
+  "version": "0.1.0",
+  "description": "Deterministically derive non-custodial privacy keys (RAILGUN shielded + ERC-5564 stealth addresses) from an embedded-wallet signature. Keys are re-derived on demand from the user's login — never stored.",
+  "license": "MIT",
+  "author": "Blake Duncan",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vectors": "tsx scripts/print-vectors.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ethereum",
+    "privacy",
+    "stealth-address",
+    "erc-5564",
+    "railgun",
+    "embedded-wallet",
+    "hkdf",
+    "non-custodial",
+    "self-custodial",
+    "viem",
+    "privy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blakecduncan/derivault.git"
+  },
+  "homepage": "https://github.com/blakecduncan/derivault#readme",
+  "bugs": {
+    "url": "https://github.com/blakecduncan/derivault/issues"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@scure/bip39": "^2.0.1",
+    "viem": "^2.38.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.20.6",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.4"
+  }
+}

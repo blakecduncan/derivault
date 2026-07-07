@@ -1,0 +1,10 @@
+src
+test
+scripts
+.github
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+*.log
+coverage
+node_modules
