@@ -102,38 +102,50 @@ See [THREAT_MODEL.md](./THREAT_MODEL.md) for the full threat model.
 
 ## Works with Kohaku
 
-`derivault` works alongside the Ethereum Foundation's Kohaku privacy SDK, the
-`@kohaku-eth/*` npm packages, but sits upstream of it. Kohaku is a wallet-level
-privacy SDK for protocols such as RAILGUN, ERC-5564 stealth addresses, and
-Privacy Pools. `derivault` is the non-custodial key-derivation layer for teams
-that are already building around embedded wallets such as Privy or passkeys and
-do not want to adopt a new wallet stack.
+`derivault` works alongside the Ethereum Foundation's Kohaku privacy SDK (the
+`@kohaku-eth/*` npm packages) and sits upstream of it. Kohaku is a wallet-level
+privacy SDK for protocols such as RAILGUN and Privacy Pools. `derivault`
+provides the non-custodial key-derivation layer for teams that already build on
+an embedded wallet (Privy, passkeys) and do not want to adopt a separate wallet
+stack.
 
-The integration shape is to derive the user's privacy keys from the embedded
-wallet first, then pass the relevant key material to Kohaku's wallet-level
-protocol adapters.
+Kohaku's RAILGUN plugin does not take a RAILGUN mnemonic directly; it derives
+its keys from a `Host` keystore. The integration is therefore to use the
+`derivault` mnemonic — derived non-custodially from the embedded-wallet
+signature — as the seed for Kohaku's `MnemonicKeystore`.
 
-Illustrative only, not tested:
+Illustrative only. Verified against `@kohaku-eth/railgun` and
+`@kohaku-eth/plugins` at `0.0.1-alpha`, which are unaudited and may introduce
+breaking changes; re-check the API against the versions you install.
 
 ```ts
 import { openKeyvault } from "derivault";
-// Conceptual import. Verify the exact API against Kohaku's current packages.
-import { createRailgunWallet } from "@kohaku-eth/railgun";
+import { MnemonicKeystore, MemoryStorage } from "@kohaku-eth/plugins";
+import { createRailgunPlugin } from "@kohaku-eth/railgun";
 
 const keyvault = await openKeyvault(source, { verifyDeterminism: true });
 
-const railgunWallet = await createRailgunWallet({
-  mnemonic: keyvault.railgunSeed.mnemonic,
-});
+// derivault derives the mnemonic from the embedded wallet, non-custodially.
+// Kohaku's keystore consumes it and derives its own RAILGUN spending/viewing
+// keys via HD paths, so that key material never has to be generated or stored
+// by your backend.
+const host = {
+  keystore: new MnemonicKeystore(keyvault.railgunSeed.mnemonic),
+  provider,                     // your @kohaku-eth/provider / EIP-1193 provider
+  storage: new MemoryStorage(), // or a persistent Storage implementation
+  // ...any other fields your Kohaku version's Host requires
+};
 
-// This is a standard ERC-5564 meta-address and can be used with ERC-5564
-// tooling, including Kohaku's stealth address support.
-const receivingMetaAddress = keyvault.stealthMetaAddress;
+const railgun = await createRailgunPlugin(host, { keyIndex: 0 });
 ```
 
-The exact Kohaku package APIs must be verified against the currently published
-`@kohaku-eth/*` packages before implementation. At the time of writing, Kohaku
-should be treated as unaudited, work-in-progress software.
+In this model `derivault` supplies the non-custodial keystore seed and Kohaku
+derives the protocol keys from it. `derivault`'s own `encryptionKey` and stealth
+keys are not used on the Kohaku path.
+
+For stealth addresses, `keyvault.stealthMetaAddress` is a standard ERC-5564
+meta-address usable with any ERC-5564 tooling. Kohaku does not currently ship a
+stealth-address module, so `derivault` complements it there.
 
 ## Determinism And Domain Separation
 
