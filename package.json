@@ -14,9 +14,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "engines": {
@@ -29,6 +34,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "vectors": "tsx scripts/print-vectors.ts",
+    "example": "tsx examples/basic.ts",
+    "check:package": "publint && attw --pack .",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -59,8 +66,10 @@
     "viem": "^2.38.6"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
     "@scopelift/stealth-address-sdk": "1.0.0-beta.5",
     "@types/node": "^20",
+    "publint": "^0.3.21",
     "tsup": "^8.3.0",
     "tsx": "^4.20.6",
     "typescript": "^5.6.0",
