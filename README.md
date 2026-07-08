@@ -175,8 +175,8 @@ apps separate key domains even when the same wallet address is used.
   spending and viewing public keys.
 - `generateEphemeralPrivateKey()`: creates a random secp256k1 private key.
 - `getPublicKey(privateKey)`: returns the compressed secp256k1 public key.
-- `computeSharedSecret(privateKey, publicKey)`: computes the compressed ECDH
-  shared secret without its prefix byte.
+- `computeSharedSecret(privateKey, publicKey)`: computes the ERC-5564 shared
+  secret (the compressed ECDH point).
 - `generateStealthAddress(metaAddress, ephemeralPrivateKey?)`: creates an
   ERC-5564 stealth address announcement.
 - `createAnnouncementMetadata(viewTag, metadataHash)`: prefixes metadata with a

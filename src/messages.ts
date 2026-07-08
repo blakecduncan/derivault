@@ -13,6 +13,15 @@ export function buildUnlockMessage(
   address: Address,
   chainId: number
 ): string {
+  if (appName.length === 0) {
+    throw new Error("buildUnlockMessage: appName must be a non-empty string");
+  }
+  if (/[\r\n]/.test(appName)) {
+    throw new Error(
+      "buildUnlockMessage: appName must not contain newline characters"
+    );
+  }
+
   const checksumAddress = getAddress(address);
 
   return [
