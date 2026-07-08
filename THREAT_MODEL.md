@@ -54,12 +54,17 @@ browser storage.
 
 ### Malicious Or Changed Signer
 
-The signer must produce byte-identical signatures for the same unlock message
-across sessions and devices. If the provider changes signing behavior, the
-derived keys change and funds can appear inaccessible unless the user has backed
-up the mnemonic. Typical secp256k1 signers use deterministic RFC 6979 ECDSA for
-stable signatures, but applications should still use `verifyDeterminism` and
-require users to export or back up the phrase before receiving funds.
+The signer must return a stable ECDSA `(r, s)` for the same unlock message across
+sessions and devices. The signature is canonicalized (64-byte `r || low-s`)
+before derivation, so encoding differences — v=27/28 vs yParity=0/1, 65-byte vs
+EIP-2098 compact, non-low-s — do not affect the derived keys; only `(r, s)`
+stability matters, which RFC 6979 deterministic ECDSA provides. The signature
+source also rejects non-ECDSA (ERC-1271 / ERC-6492 smart-account and WebAuthn)
+signatures, which are frequently non-deterministic, and verifies that the
+signature recovers to the expected signer. If a provider nonetheless changes its
+signing key or scheme, the derived keys change and funds appear inaccessible
+unless the user has backed up the mnemonic — so applications should still use
+`verifyDeterminism` and require phrase backup before receiving funds.
 
 ### Phishing The Unlock Signature
 
@@ -71,16 +76,31 @@ official app.
 
 ### Weak Or Low-Entropy Signatures
 
-The derivation assumes the signer produces a full-entropy secp256k1 signature,
-approximately 512 bits before encoding details. HKDF expands this secret
-material into domain-separated keys; it does not compensate for a signer that
-uses weak nonces, leaks private-key material, or returns predictable signatures.
+Under RFC 6979 the signature is a deterministic function of the signing key and
+the fixed unlock message, so its unpredictability is bounded by the signing key
+— roughly a 256-bit secret at about 128-bit security, not the 512 bits of the
+`r || s` encoding. That is ample keying material for HKDF, but HKDF cannot
+compensate for a signer that uses weak or reused nonces, leaks private-key
+material, or returns predictable signatures. The security of every derived key
+rests on the secrecy and quality of the underlying signing key.
 
 ### Replay And Cross-App Linkage
 
 The unlock message includes `appName`, address, chain ID, and version. The HKDF
 salt and labels are also package-specific. Different app names derive different
 keys, preventing accidental key reuse across apps that use this library.
+
+## Memory Handling
+
+Derived secrets are not — and in JavaScript cannot reliably be — zeroized. The
+mnemonic and hex private keys are immutable strings, and BigInt scalars and HKDF
+intermediates are garbage-collected on their own schedule, so plaintext secret
+material remains in heap memory until collected and is reachable by a heap dump,
+crash reporter, or swap. The imported HKDF key material is a non-extractable
+`CryptoKey`, but the input-keying-material copy is not wiped. `derivault`
+therefore assumes an uncompromised JavaScript realm, consistent with the
+"compromised device" non-guarantee below. Keep derived keys short-lived and
+avoid logging or serializing them.
 
 ## Explicit Non-Guarantees
 
@@ -90,11 +110,16 @@ keys, preventing accidental key reuse across apps that use this library.
 - This library does not defend against a malicious signer or wallet provider.
 - This library does not provide relaying, proof generation, POI handling,
   transaction construction, wallet UX, or key backup UX.
+- This library does not provide constant-time execution: JavaScript BigInt and
+  JIT behavior make timing side-channel resistance impossible to guarantee (the
+  same stance as @noble/curves). This is not a concern for one-shot client-side
+  derivation with no remote timing oracle.
 
 ## Determinism Requirement
 
-The signer must produce byte-identical signatures for the same message. If that
-property does not hold, derivation is not stable. Applications should call
-`openKeyvault(source, { verifyDeterminism: true })` at provisioning time and
-should make phrase export a required part of onboarding before funds are sent to
-derived addresses.
+The signer must return a stable `(r, s)` for the same message. Signature encoding
+is normalized, so byte-for-byte identity is not required, but `(r, s)` stability
+is. If that property does not hold, derivation is not stable. Applications should
+call `openKeyvault(source, { verifyDeterminism: true })` at provisioning time and
+make phrase export a required part of onboarding before funds are sent to derived
+addresses.

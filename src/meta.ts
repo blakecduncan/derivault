@@ -1,5 +1,10 @@
 import type { Address } from "viem";
 
+// Optional, storage-agnostic helpers for caching NON-SECRET keyvault metadata
+// (e.g. the RAILGUN wallet id and per-chain creation blocks) keyed by address.
+// Defaults to browser localStorage when present; pass a `KeyvaultMetaStorage` to
+// use any backing store. No secret material is ever written here.
+
 export interface KeyvaultMeta {
   railgunAddress: string;
   railgunWalletID: string;

@@ -17,6 +17,15 @@ them on a backend, which quietly makes the backend custodial. `derivault` avoids
 that by deriving keys on demand from the wallet's own signature, so nothing
 secret has to be stored.
 
+> **Status: pre-1.0 and unaudited.** `derivault` derives keys that can control
+> funds and has not had an external security audit. Read the code and the
+> [threat model](https://github.com/blakecduncan/derivault/blob/main/THREAT_MODEL.md)
+> before using it with real value, and treat the API and the derivation as
+> subject to change until 1.0 (see [Stability](#stability)).
+
+**Requirements:** a runtime with WebCrypto (`globalThis.crypto.subtle`) — Node
+20+, or any modern browser in a secure context (HTTPS).
+
 ## Install
 
 ```sh
@@ -51,6 +60,9 @@ const source = createSignatureUnlockSource({
 
 const keyvault = await openKeyvault(source, { verifyDeterminism: true });
 
+// Require the user to back up keyvault.railgunSeed.mnemonic before receiving
+// funds. It is the only recovery path if signature determinism ever breaks.
+
 // Use these with the RAILGUN SDK wallet creation/import flow.
 const railgunSeed = keyvault.railgunSeed.mnemonic;
 const railgunEncryptionKey = keyvault.railgunSeed.encryptionKey;
@@ -59,6 +71,7 @@ const railgunEncryptionKey = keyvault.railgunSeed.encryptionKey;
 const receivingMetaAddress = keyvault.stealthMetaAddress;
 
 // Sender side: generate a stealth address from the recipient's meta-address.
+// The returned announcement is safe to publish — it contains no private key.
 const recipientMeta = parseStealthMetaAddress(receivingMetaAddress);
 const announcement = generateStealthAddress(recipientMeta);
 
@@ -78,7 +91,8 @@ material, then expanded with permanent domain-separated `info` labels.
 
 ```text
 embedded wallet signature
-  -> HKDF-SHA256 with derivault salt
+  -> canonical 64-byte r || low-s        (encoding-invariant; recovery-checked)
+  -> HKDF-SHA256, salt + source-bound     (domain-separated info labels)
   -> 16 bytes mnemonic entropy -> BIP-39 12-word RAILGUN seed
   -> 32 bytes RAILGUN encryptionKey
   -> secp256k1 stealth spending scalar
@@ -101,12 +115,14 @@ signature can be wrapped as an `UnlockSecretSource`.
 
 Two caveats are inherent. First, derived keys necessarily live in client memory
 while they are being used for client-side privacy workflows, so a compromised
-frontend can steal them. Second, continuity depends on the signer returning the
-same signature bytes for the same message across sessions and devices. Mitigate
-that with `verifyDeterminism` during provisioning and by requiring users to back
-up the 12-word phrase before receiving funds.
+frontend can steal them. Second, continuity depends on the signer returning a
+stable ECDSA `(r, s)` for the same message across sessions and devices — the
+signature encoding is normalized, so only `(r, s)` must be stable. Mitigate that
+with `verifyDeterminism` during provisioning and by requiring users to back up
+the 12-word phrase before receiving funds.
 
-See [THREAT_MODEL.md](./THREAT_MODEL.md) for the full threat model.
+See [THREAT_MODEL.md](https://github.com/blakecduncan/derivault/blob/main/THREAT_MODEL.md)
+for the full threat model.
 
 ## Works with Kohaku
 
@@ -122,9 +138,10 @@ its keys from a `Host` keystore. The integration is therefore to use the
 `derivault` mnemonic — derived non-custodially from the embedded-wallet
 signature — as the seed for Kohaku's `MnemonicKeystore`.
 
-Illustrative only. Verified against `@kohaku-eth/railgun` and
-`@kohaku-eth/plugins` at `0.0.1-alpha`, which are unaudited and may introduce
-breaking changes; re-check the API against the versions you install.
+Illustrative only, and written against `@kohaku-eth/railgun` and
+`@kohaku-eth/plugins` at `0.0.1-alpha` — this integration is not covered by this
+repo's test suite. Those packages are unaudited and may introduce breaking
+changes, so re-check the API against the versions you install.
 
 ```ts
 import { openKeyvault } from "derivault";
@@ -164,7 +181,40 @@ re-derives all keys.
 
 The HKDF salt and `INFO` labels exported by this package are also permanent
 commitments. Different app names intentionally derive different keys, giving
-apps separate key domains even when the same wallet address is used.
+apps separate key domains even when the same wallet address is used. The
+`chainId` is likewise part of the domain: RAILGUN mnemonics and ERC-5564
+meta-addresses are chain-agnostic, so a multi-chain app should choose one
+canonical `chainId` and never vary it — otherwise each chain derives a separate,
+unfunded identity for the same user.
+
+The signature is canonicalized before derivation — reduced to its 64-byte
+`r || low-s` form — so encoding differences between signer stacks (v=27/28 vs
+yParity=0/1, 65-byte vs EIP-2098 compact, non-low-s) do not change the derived
+keys. What must still hold is that the signer returns a stable `(r, s)` for the
+same message; typical wallets use RFC-6979 deterministic ECDSA. The source also
+rejects non-ECDSA (smart-account / WebAuthn) signatures and verifies the
+signature recovers to the expected signer.
+
+`verifyDeterminism` re-derives twice within one session, so it only catches a
+randomized signer on the current device — it cannot detect drift across devices
+or across a provider changing its signer. The durable safeguard is the exported
+recovery phrase; require users to back it up before receiving funds.
+
+## Stability
+
+Two version numbers matter here, and they are independent:
+
+- **Package version** (npm semver). Pre-1.0, minor releases may make breaking
+  API changes, documented in [CHANGELOG.md](https://github.com/blakecduncan/derivault/blob/main/CHANGELOG.md).
+- **Derivation-domain version** — the unlock message, `KEYVAULT_UNLOCK_VERSION`,
+  the HKDF salt, and the `INFO` labels. These are **permanent**: a user's keys
+  are a pure function of them, so changing any one silently re-derives every
+  user's keys and presents as total fund loss.
+
+If the derivation ever needs to change, it will ship as a **new versioned
+domain** (e.g. `:v2` labels and a bumped message version) alongside the old one,
+never as an in-place edit, so existing users keep deriving their existing keys.
+Frozen-domain tests in this repo enforce that.
 
 ## API Reference
 
@@ -186,7 +236,9 @@ apps separate key domains even when the same wallet address is used.
 - `computeSharedSecret(privateKey, publicKey)`: computes the ERC-5564 shared
   secret (the compressed ECDH point).
 - `generateStealthAddress(metaAddress, ephemeralPrivateKey?)`: creates an
-  ERC-5564 stealth address announcement.
+  ERC-5564 stealth address announcement (`{ stealthAddress, ephemeralPublicKey,
+  viewTag }`) — the publishable data only; it does not return the ephemeral
+  private key.
 - `createAnnouncementMetadata(viewTag, metadataHash)`: prefixes metadata with a
   view tag byte.
 - `createStealthMetaAddress(spendingPublicKey, viewingPublicKey)`: concatenates
@@ -194,6 +246,8 @@ apps separate key domains even when the same wallet address is used.
 - `generateStealthKeyPair()`: creates a random private/public keypair.
 - `deriveStealthPrivateKey(args)`: derives the receiver's private key for a
   stealth address announcement.
+- `checkStealthAddress(args)`: receiver-side check of whether an announced
+  stealth address belongs to you (optional view-tag fast-reject).
 - `SECP256K1_SCHEME_ID`: ERC-5564 secp256k1 scheme identifier.
 - `getKeyvaultMeta(address, storage?)`: reads optional app metadata from injected
   storage or browser `localStorage`.
