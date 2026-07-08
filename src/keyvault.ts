@@ -12,7 +12,7 @@ export class KeyvaultDeterminismError extends Error {
 
 async function deriveKeyvault(source: UnlockSecretSource): Promise<Keyvault> {
   const secret = await source.getUnlockSecret();
-  const km = await importUnlockKeyMaterial(secret.bytes);
+  const km = await importUnlockKeyMaterial(secret);
   const [railgunSeed, stealth] = await Promise.all([
     deriveRailgunSeed(km),
     deriveStealthKeys(km),
@@ -24,6 +24,18 @@ async function deriveKeyvault(source: UnlockSecretSource): Promise<Keyvault> {
   return { accountId: source.accountId, railgunSeed, stealth, stealthMetaAddress };
 }
 
+/**
+ * Derive a keyvault (RAILGUN seed, stealth keypair, and stealth meta-address)
+ * from an unlock source. The derivation is a pure function of the source's
+ * secret, so the same source always yields the same keyvault.
+ *
+ * @param opts.verifyDeterminism When true, the source is unlocked TWICE and the
+ * two derivations are compared. With a signature source this triggers a SECOND
+ * wallet signing prompt — surface that to the user so it does not read as
+ * phishing. It only detects a randomized signer within the current session; it
+ * cannot detect cross-device/cross-provider drift, so also require the user to
+ * back up `railgunSeed.mnemonic`.
+ */
 export async function openKeyvault(
   source: UnlockSecretSource,
   opts: { verifyDeterminism?: boolean } = {}

@@ -57,7 +57,14 @@ describe("input validation", () => {
       chainId: 1,
       signMessage: async () => "0xdeadbeef" as Hex, // 4 bytes
     });
-    await expect(source.getUnlockSecret()).rejects.toThrow(/too short/);
+    await expect(source.getUnlockSecret()).rejects.toThrow(/64- or 65-byte/);
+  });
+
+  it("rejects a non-integer or non-positive chainId", () => {
+    expect(() => buildUnlockMessage("App", account.address, Number.NaN)).toThrow();
+    expect(() => buildUnlockMessage("App", account.address, 0)).toThrow();
+    expect(() => buildUnlockMessage("App", account.address, -1)).toThrow();
+    expect(() => buildUnlockMessage("App", account.address, 1.5)).toThrow();
   });
 
   it("rejects a non-hex signature", async () => {

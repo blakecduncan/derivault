@@ -22,7 +22,8 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "engines": {
     "node": ">=20"
@@ -36,7 +37,7 @@
     "vectors": "tsx scripts/print-vectors.ts",
     "example": "tsx examples/basic.ts",
     "check:package": "publint && attw --pack .",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "pnpm typecheck && pnpm test && pnpm build"
   },
   "keywords": [
     "ethereum",
@@ -61,9 +62,9 @@
     "url": "https://github.com/blakecduncan/derivault/issues"
   },
   "dependencies": {
-    "@noble/curves": "^1.4.0",
-    "@scure/bip39": "^2.0.1",
-    "viem": "^2.38.6"
+    "@noble/curves": "^1.9.7",
+    "@scure/bip39": "^2.2.0",
+    "viem": "^2.54.6"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.4",

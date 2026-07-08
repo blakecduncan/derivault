@@ -1,5 +1,6 @@
 import {
   keccak256,
+  getAddress,
   toBytes,
   toHex,
   concat,
@@ -21,9 +22,16 @@ export interface StealthAddress {
   viewTag: number;
 }
 
+function assertCompressedPubKey(key: Hex, context: string): void {
+  const bytes = toBytes(key);
+  if (bytes.length !== 33 || (bytes[0] !== 0x02 && bytes[0] !== 0x03)) {
+    throw new Error(`${context}: expected a 33-byte compressed secp256k1 public key`);
+  }
+}
+
 /**
  * Parse an ERC-5564 stealth meta-address (spending pubkey ‖ viewing pubkey,
- * 33 bytes each, compressed) into its two component public keys.
+ * 33 compressed bytes each) into its two component public keys.
  */
 export function parseStealthMetaAddress(metaAddressBytes: Hex): StealthMetaAddress {
   const bytes = toBytes(metaAddressBytes);
@@ -32,6 +40,8 @@ export function parseStealthMetaAddress(metaAddressBytes: Hex): StealthMetaAddre
   }
   const spendingPubKey = toHex(bytes.slice(0, 33));
   const viewingPubKey = toHex(bytes.slice(33, 66));
+  assertCompressedPubKey(spendingPubKey, "parseStealthMetaAddress (spending key)");
+  assertCompressedPubKey(viewingPubKey, "parseStealthMetaAddress (viewing key)");
   return { spendingPubKey, viewingPubKey };
 }
 
@@ -46,7 +56,7 @@ export function getPublicKey(privateKey: Hex): Hex {
 /**
  * ERC-5564 (scheme 1) shared secret: the *compressed* ECDH point (33 bytes,
  * including the 0x02/0x03 prefix), matching the value hashed by the canonical
- * ERC-5564 construction. This is interoperable with standard ERC-5564 tooling.
+ * ERC-5564 construction. Interoperable with standard ERC-5564 tooling.
  */
 export function computeSharedSecret(privateKey: Hex, publicKey: Hex): Hex {
   return toHex(
@@ -60,21 +70,26 @@ function hashSharedSecret(privateKey: Hex, publicKey: Hex): Hex {
   return keccak256(computeSharedSecret(privateKey, publicKey));
 }
 
-// Uncompressed secp256k1 public key (65 bytes) -> checksum-less 20-byte address.
+// Uncompressed secp256k1 public key (65 bytes) -> checksummed EIP-55 address.
 function publicKeyToAddress(uncompressedPubKey: Uint8Array): Address {
   const addressHash = keccak256(uncompressedPubKey.slice(1));
-  return `0x${addressHash.slice(-40)}` as Address;
+  return getAddress(`0x${addressHash.slice(-40)}`);
 }
 
 /**
  * ERC-5564 scheme 1: generate a one-time stealth address for a recipient's
  * meta-address. Interoperable with the reference implementation
  * (@scopelift/stealth-address-sdk); verified by tests.
+ *
+ * The returned object is the *publishable* announcement — it deliberately does
+ * NOT include the ephemeral private key. If you supplied `ephemeralPrivateKey`,
+ * you already hold it; never publish it, as it would let anyone recompute the
+ * shared secret and de-anonymize the payment.
  */
 export function generateStealthAddress(
   metaAddress: StealthMetaAddress,
   ephemeralPrivateKey?: Hex
-): StealthAddress & { ephemeralPrivateKey: Hex } {
+): StealthAddress {
   const ephPrivKey = ephemeralPrivateKey ?? generateEphemeralPrivateKey();
   const ephemeralPublicKey = getPublicKey(ephPrivKey);
 
@@ -89,7 +104,7 @@ export function generateStealthAddress(
   const stealthAddress = publicKeyToAddress(stealthPubKeyPoint.toRawBytes(false));
   const viewTag = hashedBytes[0]!; // most significant byte of the hash
 
-  return { stealthAddress, ephemeralPublicKey, viewTag, ephemeralPrivateKey: ephPrivKey };
+  return { stealthAddress, ephemeralPublicKey, viewTag };
 }
 
 /**
@@ -97,6 +112,9 @@ export function generateStealthAddress(
  * metadata hash. The first byte MUST be the view tag per ERC-5564.
  */
 export function createAnnouncementMetadata(viewTag: number, metadataHash: Hex): Hex {
+  if (!Number.isInteger(viewTag) || viewTag < 0 || viewTag > 255) {
+    throw new Error("createAnnouncementMetadata: viewTag must be a byte (0-255)");
+  }
   const viewTagByte = toHex(new Uint8Array([viewTag]));
   return concat([viewTagByte, metadataHash]);
 }
@@ -106,6 +124,8 @@ export function createStealthMetaAddress(
   spendingPublicKey: Hex,
   viewingPublicKey: Hex
 ): Hex {
+  assertCompressedPubKey(spendingPublicKey, "createStealthMetaAddress (spending key)");
+  assertCompressedPubKey(viewingPublicKey, "createStealthMetaAddress (viewing key)");
   const spendingBytes = toBytes(spendingPublicKey);
   const viewingBytes = toBytes(viewingPublicKey);
   return toHex(new Uint8Array([...spendingBytes, ...viewingBytes]));
@@ -132,4 +152,36 @@ export function deriveStealthPrivateKey({
   const hashed = hashSharedSecret(viewingPrivateKey, ephemeralPublicKey);
   const derived = (BigInt(spendingPrivateKey) + BigInt(hashed)) % secp256k1.CURVE.n;
   return toHex(derived, { size: 32 });
+}
+
+/**
+ * ERC-5564 scheme 1: receiver-side check of whether an announced stealth address
+ * belongs to you, using your viewing private key and spending public key. The
+ * view tag (if provided) is a cheap fast-reject filter; the address comparison
+ * is authoritative. Returns true iff the announcement resolves to
+ * `stealthAddress` under your keys.
+ */
+export function checkStealthAddress({
+  ephemeralPublicKey,
+  spendingPublicKey,
+  viewingPrivateKey,
+  stealthAddress,
+  viewTag,
+}: {
+  ephemeralPublicKey: Hex;
+  spendingPublicKey: Hex;
+  viewingPrivateKey: Hex;
+  stealthAddress: Address;
+  viewTag?: number;
+}): boolean {
+  const hashed = hashSharedSecret(viewingPrivateKey, ephemeralPublicKey);
+  const hashedBytes = toBytes(hashed);
+  if (viewTag !== undefined && hashedBytes[0] !== viewTag) {
+    return false;
+  }
+  const stealthPubKeyPoint = secp256k1.ProjectivePoint.fromHex(
+    spendingPublicKey.slice(2)
+  ).add(secp256k1.ProjectivePoint.fromPrivateKey(hashedBytes));
+  const derivedAddress = publicKeyToAddress(stealthPubKeyPoint.toRawBytes(false));
+  return getAddress(derivedAddress) === getAddress(stealthAddress);
 }

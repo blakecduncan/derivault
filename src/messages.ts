@@ -21,6 +21,9 @@ export function buildUnlockMessage(
       "buildUnlockMessage: appName must not contain newline characters"
     );
   }
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) {
+    throw new Error("buildUnlockMessage: chainId must be a positive integer");
+  }
 
   const checksumAddress = getAddress(address);
 

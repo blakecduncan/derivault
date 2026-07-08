@@ -6,13 +6,13 @@ settings:
 
 dependencies:
   '@noble/curves':
-    specifier: ^1.4.0
+    specifier: ^1.9.7
     version: 1.9.7
   '@scure/bip39':
-    specifier: ^2.0.1
+    specifier: ^2.2.0
     version: 2.2.0
   viem:
-    specifier: ^2.38.6
+    specifier: ^2.54.6
     version: 2.54.6(typescript@5.9.3)
 
 devDependencies:

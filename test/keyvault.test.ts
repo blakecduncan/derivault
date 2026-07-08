@@ -16,8 +16,12 @@ const FIXED_KEY =
 const CHAIN_ID = 42161;
 const APP_NAME = "Derivault Example";
 
-const EXPECTED_MNEMONIC = "high bubble marriage vacuum sausage trial diagram ramp toilet zebra silly artist";
-const EXPECTED_STEALTH_META_ADDRESS = "0x03c780d93b525a80edfcd5727c8d8d9ee9e1c603328c7d822dc3f63c1575ad31e5027f5bd90a8a5dd27cd74d439e25505160e7e1cf0a8622cda7c17008465336b1bb";
+const EXPECTED_MNEMONIC =
+  "like canoe silver spatial layer draw infant wonder gesture like hazard current";
+const EXPECTED_ENCRYPTION_KEY =
+  "fe7df2a9b10a16b0ce567f8062b3c8a744bb8ae3bf57cb1aea616141b6c59e40";
+const EXPECTED_STEALTH_META_ADDRESS =
+  "0x033f79e414edc236b27a72b4241ce37df1f1dee00985acf3354f63dd6474825bdb0223c7f9ac4aa826b687702bf0932db8f71b46ff079b85d5d24257380f0437d0cb";
 
 function createDeterministicSource(): UnlockSecretSource {
   const account = privateKeyToAccount(FIXED_KEY);
@@ -78,6 +82,7 @@ describe("openKeyvault", () => {
     const keyvault = await openKeyvault(createDeterministicSource());
 
     expect(keyvault.railgunSeed.mnemonic).toBe(EXPECTED_MNEMONIC);
+    expect(keyvault.railgunSeed.encryptionKey).toBe(EXPECTED_ENCRYPTION_KEY);
     expect(keyvault.stealthMetaAddress).toBe(EXPECTED_STEALTH_META_ADDRESS);
   });
 });

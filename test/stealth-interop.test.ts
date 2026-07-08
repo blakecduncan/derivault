@@ -13,6 +13,7 @@ import {
   getPublicKey,
   generateStealthAddress,
   deriveStealthPrivateKey,
+  checkStealthAddress,
 } from "../src/index";
 
 // Proves derivault's ERC-5564 (scheme 1) implementation is interoperable with
@@ -24,8 +25,9 @@ const VIEWING_PRIVATE_KEY =
 const EPHEMERAL_PRIVATE_KEY =
   "0x3333333333333333333333333333333333333333333333333333333333333333" as Hex;
 
+const spendingPublicKey = getPublicKey(SPENDING_PRIVATE_KEY);
 const metaAddress = createStealthMetaAddress(
-  getPublicKey(SPENDING_PRIVATE_KEY),
+  spendingPublicKey,
   getPublicKey(VIEWING_PRIVATE_KEY)
 );
 
@@ -63,5 +65,41 @@ describe("ERC-5564 interop with @scopelift/stealth-address-sdk", () => {
     expect(privateKeyToAccount(scopeliftPrivateKey).address.toLowerCase()).toBe(
       generated.stealthAddress.toLowerCase()
     );
+  });
+
+  it("derivault's checkStealthAddress agrees with ScopeLift's view tag", () => {
+    const generated = scopeliftGenerate({
+      stealthMetaAddressURI: metaAddress,
+      schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
+    });
+
+    // ScopeLift returns the view tag as a 0x-prefixed hex byte; ours is a number.
+    // If our view-tag computation disagreed, this would fast-reject to false.
+    expect(
+      checkStealthAddress({
+        ephemeralPublicKey: generated.ephemeralPublicKey,
+        spendingPublicKey,
+        viewingPrivateKey: VIEWING_PRIVATE_KEY,
+        stealthAddress: generated.stealthAddress,
+        viewTag: Number(generated.viewTag),
+      })
+    ).toBe(true);
+  });
+
+  it("round-trips across implementations for many random ephemeral keys", () => {
+    for (let i = 0; i < 25; i += 1) {
+      const generated = scopeliftGenerate({
+        stealthMetaAddressURI: metaAddress,
+        schemeId: VALID_SCHEME_ID.SCHEME_ID_1,
+      });
+      const derivedPrivateKey = deriveStealthPrivateKey({
+        spendingPrivateKey: SPENDING_PRIVATE_KEY,
+        viewingPrivateKey: VIEWING_PRIVATE_KEY,
+        ephemeralPublicKey: generated.ephemeralPublicKey,
+      });
+      expect(privateKeyToAccount(derivedPrivateKey).address.toLowerCase()).toBe(
+        generated.stealthAddress.toLowerCase()
+      );
+    }
   });
 });

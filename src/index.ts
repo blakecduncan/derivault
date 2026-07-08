@@ -14,6 +14,7 @@ export { createSignatureUnlockSource } from "./sources/signature";
 export { INFO, KEYVAULT_HKDF_SALT } from "./hkdf";
 export {
   SECP256K1_SCHEME_ID,
+  checkStealthAddress,
   computeSharedSecret,
   createAnnouncementMetadata,
   createStealthMetaAddress,

@@ -1,6 +1,13 @@
 import type { Address, Hex } from "viem";
 
-export type UnlockSourceKind = "eip191-signature-v1" | "webauthn-prf-v1";
+/**
+ * Identifies how the unlock secret was obtained. This is bound into the HKDF
+ * derivation domain (see `importUnlockKeyMaterial`), so it is a permanent part
+ * of the derivation, not merely informational metadata. Additional source kinds
+ * (e.g. a future WebAuthn-PRF source) can be added later without breaking
+ * existing derivations, since each kind gets its own key domain.
+ */
+export type UnlockSourceKind = "eip191-signature-v1";
 
 export interface UnlockSecret {
   readonly bytes: Uint8Array;
