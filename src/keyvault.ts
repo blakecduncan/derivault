@@ -1,4 +1,4 @@
-import { deriveRailgunSeed, deriveStealthKeys } from "./derive";
+import { deriveRailgunSeed, deriveStealthKeys, deriveWalletEoa } from "./derive";
 import { importUnlockKeyMaterial } from "./hkdf";
 import { createStealthMetaAddress } from "./stealth";
 import type { Keyvault, UnlockSecretSource } from "./types";
@@ -13,15 +13,22 @@ export class KeyvaultDeterminismError extends Error {
 async function deriveKeyvault(source: UnlockSecretSource): Promise<Keyvault> {
   const secret = await source.getUnlockSecret();
   const km = await importUnlockKeyMaterial(secret);
-  const [railgunSeed, stealth] = await Promise.all([
+  const [railgunSeed, stealth, walletEoa] = await Promise.all([
     deriveRailgunSeed(km),
     deriveStealthKeys(km),
+    deriveWalletEoa(km),
   ]);
   const stealthMetaAddress = createStealthMetaAddress(
     stealth.spendingPublicKey,
     stealth.viewingPublicKey
   );
-  return { accountId: source.accountId, railgunSeed, stealth, stealthMetaAddress };
+  return {
+    accountId: source.accountId,
+    railgunSeed,
+    stealth,
+    stealthMetaAddress,
+    walletEoa,
+  };
 }
 
 /**
@@ -45,7 +52,8 @@ export async function openKeyvault(
     const secondKeyvault = await deriveKeyvault(source);
     const matches =
       keyvault.railgunSeed.mnemonic === secondKeyvault.railgunSeed.mnemonic &&
-      keyvault.stealthMetaAddress === secondKeyvault.stealthMetaAddress;
+      keyvault.stealthMetaAddress === secondKeyvault.stealthMetaAddress &&
+      keyvault.walletEoa.address === secondKeyvault.walletEoa.address;
     if (!matches) {
       throw new KeyvaultDeterminismError();
     }

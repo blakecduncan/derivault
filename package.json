@@ -1,7 +1,7 @@
 {
   "name": "derivault",
-  "version": "0.1.0",
-  "description": "Deterministically derive non-custodial privacy keys (RAILGUN shielded + ERC-5564 stealth addresses) from an embedded-wallet signature. Keys are re-derived on demand from the user's login — never stored.",
+  "version": "0.2.0",
+  "description": "Deterministically derive a wallet owner, RAILGUN seed, and ERC-5564 stealth keys from a WebAuthn PRF passkey or EIP-191 signature.",
   "license": "MIT",
   "author": "Blake Duncan",
   "type": "module",
@@ -46,6 +46,8 @@
     "erc-5564",
     "railgun",
     "embedded-wallet",
+    "passkey",
+    "webauthn",
     "hkdf",
     "non-custodial",
     "self-custodial",

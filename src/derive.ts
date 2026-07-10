@@ -1,10 +1,11 @@
 import { entropyToMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { toHex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 
 import { hkdfBytes, hkdfScalar, INFO } from "./hkdf";
 import { getPublicKey } from "./stealth";
-import type { RailgunSeed, StealthKeypair } from "./types";
+import type { RailgunSeed, StealthKeypair, WalletEoa } from "./types";
 
 export async function deriveRailgunSeed(km: CryptoKey): Promise<RailgunSeed> {
   const entropy = await hkdfBytes(km, INFO.railgunSeed, 16);
@@ -22,4 +23,9 @@ export async function deriveStealthKeys(km: CryptoKey): Promise<StealthKeypair> 
     viewingPrivateKey,
     viewingPublicKey: getPublicKey(viewingPrivateKey),
   };
+}
+
+export async function deriveWalletEoa(km: CryptoKey): Promise<WalletEoa> {
+  const privateKey = toHex(await hkdfScalar(km, INFO.walletEoa), { size: 32 });
+  return { privateKey, address: privateKeyToAccount(privateKey).address };
 }

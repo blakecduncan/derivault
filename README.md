@@ -4,8 +4,9 @@
 [![CI](https://github.com/blakecduncan/derivault/actions/workflows/ci.yml/badge.svg)](https://github.com/blakecduncan/derivault/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-Deterministically derive non-custodial privacy keys for RAILGUN shielded wallets
-and ERC-5564 stealth addresses from an embedded-wallet signature.
+Deterministically derive non-custodial wallet and privacy keys for RAILGUN,
+ERC-5564 stealth addresses, and an owner EOA from an embedded-wallet signature
+or a synced WebAuthn PRF passkey.
 
 The ERC-5564 (scheme 1) stealth implementation is tested for interoperability
 against the reference SDK, [`@scopelift/stealth-address-sdk`](https://github.com/ScopeLift/stealth-address-sdk),
@@ -83,6 +84,34 @@ const stealthPrivateKey = deriveStealthPrivateKey({
 });
 ```
 
+### Passkey quickstart
+
+Passkeys must be used in a secure browser context. Registration requires a
+discoverable credential and reports whether its authenticator supports PRF.
+
+```ts
+import {
+  createWebAuthnPrfUnlockSource,
+  openKeyvault,
+  registerPasskeyWithPrf,
+} from "derivault";
+
+const registration = await registerPasskeyWithPrf({
+  appName: "Example App",
+  userName: "user@example.com",
+});
+if (!registration.prfSupported) throw new Error("PRF is not supported");
+
+const source = createWebAuthnPrfUnlockSource({
+  appName: "Example App",
+  credentialId: registration.credentialId,
+});
+const keyvault = await openKeyvault(source);
+
+// Local ECDSA owner for SIWE and smart-account validators.
+const owner = keyvault.walletEoa;
+```
+
 ## How It Works
 
 The unlock source obtains an EIP-191 `personal_sign` signature over a stable,
@@ -90,7 +119,7 @@ human-readable message. Those signature bytes are used as HKDF-SHA256 key
 material, then expanded with permanent domain-separated `info` labels.
 
 ```text
-embedded wallet signature
+embedded wallet signature or WebAuthn PRF output
   -> canonical 64-byte r || low-s        (encoding-invariant; recovery-checked)
   -> HKDF-SHA256, salt + source-bound     (domain-separated info labels)
   -> 16 bytes mnemonic entropy -> BIP-39 12-word RAILGUN seed
@@ -98,6 +127,7 @@ embedded wallet signature
   -> secp256k1 stealth spending scalar
   -> secp256k1 stealth viewing scalar
   -> ERC-5564 stealth meta-address
+  -> secp256k1 wallet owner EOA
 ```
 
 The RAILGUN mnemonic uses 16 bytes of entropy, producing a 12-word phrase. The
@@ -223,8 +253,14 @@ Frozen-domain tests in this repo enforce that.
 - `KEYVAULT_UNLOCK_VERSION`: current unlock message version.
 - `createSignatureUnlockSource(options)`: wraps an EIP-191 signer as an
   `UnlockSecretSource`.
-- `openKeyvault(source, opts?)`: derives the RAILGUN seed, stealth keypair, and
-  stealth meta-address.
+- `createWebAuthnPrfUnlockSource(options)`: reads a deterministic secret from a
+  synced passkey using the WebAuthn PRF extension.
+- `registerPasskeyWithPrf(options)`: creates a discoverable passkey and reports
+  PRF support.
+- `openKeyvault(source, opts?)`: derives the RAILGUN seed, stealth keypair,
+  stealth meta-address, and owner EOA.
+- `deriveWalletEoa(keyMaterial)`: derives the local ECDSA owner using the
+  permanent `INFO.walletEoa` domain.
 - `KeyvaultDeterminismError`: thrown when `verifyDeterminism` detects changing
   derivation output.
 - `INFO`: permanent HKDF `info` labels.
@@ -254,7 +290,7 @@ Frozen-domain tests in this repo enforce that.
 - `setKeyvaultMeta(address, meta, storage?)`: writes optional app metadata.
 - `clearKeyvaultMeta(address, storage?)`: removes optional app metadata.
 - Types: `Address`, `Hex`, `UnlockSourceKind`, `UnlockSecret`,
-  `UnlockSecretSource`, `RailgunSeed`, `StealthKeypair`, `Keyvault`,
+  `UnlockSecretSource`, `RailgunSeed`, `StealthKeypair`, `WalletEoa`, `Keyvault`,
   `StealthMetaAddress`, `StealthAddress`, `KeyvaultMeta`, and
   `KeyvaultMetaStorage`.
 
@@ -269,9 +305,9 @@ interface UnlockSecretSource {
 }
 ```
 
-The first source is an EIP-191 signature source. Other sources can be added
-without changing the derivation pipeline, such as a future WebAuthn-PRF passkey
-source. No passkey source is included in v1.
+The included sources are EIP-191 signatures and WebAuthn PRF passkeys. Further
+sources can be added without changing the derivation pipeline; every source
+kind is bound into the HKDF input domain.
 
 ## Non-Goals
 

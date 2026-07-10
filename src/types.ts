@@ -7,7 +7,9 @@ import type { Address, Hex } from "viem";
  * (e.g. a future WebAuthn-PRF source) can be added later without breaking
  * existing derivations, since each kind gets its own key domain.
  */
-export type UnlockSourceKind = "eip191-signature-v1";
+export type UnlockSourceKind =
+  | "eip191-signature-v1"
+  | "webauthn-prf-v1";
 
 export interface UnlockSecret {
   readonly bytes: Uint8Array;
@@ -31,11 +33,17 @@ export interface StealthKeypair {
   viewingPublicKey: Hex;
 }
 
+export interface WalletEoa {
+  privateKey: Hex;
+  address: Address;
+}
+
 export interface Keyvault {
   accountId: string;
   railgunSeed: RailgunSeed;
   stealth: StealthKeypair;
   stealthMetaAddress: Hex;
+  walletEoa: WalletEoa;
 }
 
 export type { Address, Hex };

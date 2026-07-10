@@ -4,6 +4,7 @@ export type {
   Keyvault,
   RailgunSeed,
   StealthKeypair,
+  WalletEoa,
   UnlockSecret,
   UnlockSecretSource,
   UnlockSourceKind,
@@ -11,6 +12,12 @@ export type {
 export { buildUnlockMessage, KEYVAULT_UNLOCK_VERSION } from "./messages";
 export { openKeyvault, KeyvaultDeterminismError } from "./keyvault";
 export { createSignatureUnlockSource } from "./sources/signature";
+export {
+  createWebAuthnPrfUnlockSource,
+  registerPasskeyWithPrf,
+} from "./sources/webauthn-prf";
+export type { WebAuthnPrfRegistration } from "./sources/webauthn-prf";
+export { deriveWalletEoa } from "./derive";
 export { INFO, KEYVAULT_HKDF_SALT } from "./hkdf";
 export {
   SECP256K1_SCHEME_ID,

@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0]
+
+### Added
+
+- WebAuthn PRF passkey registration and unlock sources for synced,
+  discoverable credentials.
+- Deterministic secp256k1 wallet-owner derivation at the permanent
+  `derivault:wallet:eoa:v1` HKDF label.
+- PRF/signature source domain-separation and wallet-owner golden vectors.
+
+### Compatibility
+
+- Existing EIP-191 RAILGUN and stealth derivations are byte-identical to 0.1.0.
+- `walletEoa` is an additive field on `Keyvault`.
+
 ## [0.1.0]
 
 Initial release.

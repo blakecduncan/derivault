@@ -43,6 +43,7 @@ describe("frozen derivation domain", () => {
       railgunEncKey: "derivault:railgun:enc-key:v1",
       stealthSpending: "derivault:stealth:spending:v1",
       stealthViewing: "derivault:stealth:viewing:v1",
+      walletEoa: "derivault:wallet:eoa:v1",
     });
   });
 });
