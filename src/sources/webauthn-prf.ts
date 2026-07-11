@@ -26,7 +26,7 @@ function assertWebAuthn(): void {
   }
 }
 
-function encodeCredentialId(bytes: Uint8Array): string {
+export function encodeCredentialId(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary)
@@ -35,7 +35,7 @@ function encodeCredentialId(bytes: Uint8Array): string {
     .replace(/=+$/u, "");
 }
 
-function decodeCredentialId(value: string): Uint8Array {
+export function decodeCredentialId(value: string): Uint8Array {
   const padded = value
     .replace(/-/g, "+")
     .replace(/_/g, "/")
@@ -43,10 +43,14 @@ function decodeCredentialId(value: string): Uint8Array {
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
 }
 
-async function prfSalt(appName: string): Promise<Uint8Array> {
+// Permanent domain commitment. Never change this prefix or the SHA-256 encoding
+// below: the authenticator's PRF output — and therefore every passkey user's
+// keys — is a pure function of this salt. Frozen by test/freeze.test.ts.
+export const WEBAUTHN_PRF_SALT_PREFIX = "derivault:webauthn-prf:v1:";
+
+export async function prfSalt(appName: string): Promise<Uint8Array> {
   if (!appName.trim()) throw new Error("appName must not be empty");
-  // Permanent domain commitment. Never change this prefix or encoding.
-  const input = encoder.encode(`derivault:webauthn-prf:v1:${appName}`);
+  const input = encoder.encode(`${WEBAUTHN_PRF_SALT_PREFIX}${appName}`);
   return new Uint8Array(await crypto.subtle.digest("SHA-256", input));
 }
 
@@ -130,15 +134,21 @@ export async function registerPasskeyWithPrf({
     credential.getClientExtensionResults() as PrfExtensionResults;
   const credentialId = encodeCredentialId(new Uint8Array(credential.rawId));
   const first = extensionResults.prf?.results?.first;
+  // Accept a create-time PRF secret ONLY if it is the exact 32-byte shape the
+  // get() unlock path enforces (webauthn-prf.ts length guard above). Otherwise
+  // leave unlockSource undefined, so a non-conformant authenticator can't derive
+  // keys at registration that a later get()-based unlock would then reject.
+  const usablePrf =
+    first != null && first.byteLength === 32 ? new Uint8Array(first) : undefined;
   return {
     credentialId,
-    prfSupported: extensionResults.prf?.enabled === true || Boolean(first),
-    unlockSource: first
+    prfSupported: extensionResults.prf?.enabled === true || usablePrf != null,
+    unlockSource: usablePrf
       ? {
           accountId: credentialId,
           async getUnlockSecret() {
             return {
-              bytes: new Uint8Array(first),
+              bytes: new Uint8Array(usablePrf),
               source: "webauthn-prf-v1",
             };
           },

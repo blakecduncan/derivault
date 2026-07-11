@@ -22,6 +22,11 @@ const EXPECTED_ENCRYPTION_KEY =
   "fe7df2a9b10a16b0ce567f8062b3c8a744bb8ae3bf57cb1aea616141b6c59e40";
 const EXPECTED_STEALTH_META_ADDRESS =
   "0x033f79e414edc236b27a72b4241ce37df1f1dee00985acf3354f63dd6474825bdb0223c7f9ac4aa826b687702bf0932db8f71b46ff079b85d5d24257380f0437d0cb";
+const EXPECTED_WALLET_EOA = {
+  privateKey:
+    "0x35bb63adcb605efd9f7c1ec004ca553747c4ec5b717102255b38afe874fdeaba",
+  address: "0x96E230bc289ADa12a52E5D711d3eCA8c39a63eBd",
+} as const;
 
 function createDeterministicSource(): UnlockSecretSource {
   const account = privateKeyToAccount(FIXED_KEY);
@@ -84,5 +89,29 @@ describe("openKeyvault", () => {
     expect(keyvault.railgunSeed.mnemonic).toBe(EXPECTED_MNEMONIC);
     expect(keyvault.railgunSeed.encryptionKey).toBe(EXPECTED_ENCRYPTION_KEY);
     expect(keyvault.stealthMetaAddress).toBe(EXPECTED_STEALTH_META_ADDRESS);
+    // Freeze the owner EOA on the production signature path (funds-controlling).
+    expect(keyvault.walletEoa).toEqual(EXPECTED_WALLET_EOA);
+  });
+
+  it("propagates accountId and derives a complete keyvault from a raw source", async () => {
+    const source: UnlockSecretSource = {
+      accountId: "acct-123",
+      async getUnlockSecret() {
+        return {
+          bytes: Uint8Array.from({ length: 32 }, (_, index) => index),
+          source: "eip191-signature-v1",
+        };
+      },
+    };
+
+    const keyvault = await openKeyvault(source);
+    expect(keyvault.accountId).toBe("acct-123");
+    expect(keyvault.railgunSeed.encryptionKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(keyvault.railgunSeed.mnemonic.split(/\s+/)).toHaveLength(12);
+    expect(keyvault.stealth.spendingPublicKey).toMatch(/^0x0[23][0-9a-f]{64}$/);
+    expect(keyvault.stealth.viewingPublicKey).toMatch(/^0x0[23][0-9a-f]{64}$/);
+    expect(privateKeyToAccount(keyvault.walletEoa.privateKey).address).toBe(
+      keyvault.walletEoa.address
+    );
   });
 });

@@ -258,9 +258,7 @@ Frozen-domain tests in this repo enforce that.
 - `registerPasskeyWithPrf(options)`: creates a discoverable passkey and reports
   PRF support.
 - `openKeyvault(source, opts?)`: derives the RAILGUN seed, stealth keypair,
-  stealth meta-address, and owner EOA.
-- `deriveWalletEoa(keyMaterial)`: derives the local ECDSA owner using the
-  permanent `INFO.walletEoa` domain.
+  stealth meta-address, and owner EOA (`keyvault.walletEoa`).
 - `KeyvaultDeterminismError`: thrown when `verifyDeterminism` detects changing
   derivation output.
 - `INFO`: permanent HKDF `info` labels.
@@ -291,8 +289,8 @@ Frozen-domain tests in this repo enforce that.
 - `clearKeyvaultMeta(address, storage?)`: removes optional app metadata.
 - Types: `Address`, `Hex`, `UnlockSourceKind`, `UnlockSecret`,
   `UnlockSecretSource`, `RailgunSeed`, `StealthKeypair`, `WalletEoa`, `Keyvault`,
-  `StealthMetaAddress`, `StealthAddress`, `KeyvaultMeta`, and
-  `KeyvaultMetaStorage`.
+  `WebAuthnPrfRegistration`, `StealthMetaAddress`, `StealthAddress`,
+  `KeyvaultMeta`, and `KeyvaultMetaStorage`.
 
 ## Extensibility
 

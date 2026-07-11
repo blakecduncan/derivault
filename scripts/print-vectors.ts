@@ -1,7 +1,8 @@
 import { privateKeyToAccount } from "viem/accounts";
-import type { Hex } from "viem";
+import { toHex, type Hex } from "viem";
 
 import { createSignatureUnlockSource, openKeyvault } from "../src/index";
+import { prfSalt } from "../src/sources/webauthn-prf";
 
 const FIXED_KEY =
   "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" as Hex;
@@ -28,6 +29,8 @@ console.log(
       spendingPublicKey: keyvault.stealth.spendingPublicKey,
       viewingPrivateKey: keyvault.stealth.viewingPrivateKey,
       viewingPublicKey: keyvault.stealth.viewingPublicKey,
+      walletEoa: keyvault.walletEoa,
+      prfSalt: toHex(await prfSalt(APP_NAME)),
     },
     null,
     2

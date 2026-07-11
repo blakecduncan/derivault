@@ -3,6 +3,33 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0]
+
+### Fixed
+
+- `registerPasskeyWithPrf` now applies the same 32-byte length guard as the
+  passkey unlock path. A non-conformant authenticator returning a non-32-byte
+  create-time PRF output no longer yields an unlock source whose keys a later
+  `get()`-based unlock (which enforces the guard) would reject.
+
+### Changed
+
+- Removed `deriveWalletEoa` from the public API. Its argument was an internal
+  HKDF `CryptoKey` that was never exported, so it could not reproduce
+  `openKeyvault`'s owner EOA. Use `keyvault.walletEoa` — `openKeyvault` is the
+  supported derivation entry point. Existing derivations are unchanged.
+
+### Tests / Docs
+
+- Froze the permanent WebAuthn PRF salt (`derivault:webauthn-prf:v1:`) with a
+  golden vector, matching how the HKDF salt and INFO labels are frozen.
+- Added direct tests for the WebAuthn PRF source (unlock request wiring, PRF
+  error paths, `registerPasskeyWithPrf` support/guard logic, `prfSalt` app
+  separation, credential-id base64url round-trip), an owner-EOA golden vector on
+  the signature path, and an accountId / full-shape keyvault assertion.
+- Corrected stale `openKeyvault` JSDoc/README and added `WebAuthnPrfRegistration`
+  to the README Types list.
+
 ## [0.2.0]
 
 ### Added

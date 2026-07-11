@@ -32,9 +32,9 @@ async function deriveKeyvault(source: UnlockSecretSource): Promise<Keyvault> {
 }
 
 /**
- * Derive a keyvault (RAILGUN seed, stealth keypair, and stealth meta-address)
- * from an unlock source. The derivation is a pure function of the source's
- * secret, so the same source always yields the same keyvault.
+ * Derive a keyvault (RAILGUN seed, stealth keypair, stealth meta-address, and
+ * secp256k1 owner EOA) from an unlock source. The derivation is a pure function
+ * of the source's secret, so the same source always yields the same keyvault.
  *
  * @param opts.verifyDeterminism When true, the source is unlocked TWICE and the
  * two derivations are compared. With a signature source this triggers a SECOND

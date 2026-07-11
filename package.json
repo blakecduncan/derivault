@@ -1,6 +1,6 @@
 {
   "name": "derivault",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Deterministically derive a wallet owner, RAILGUN seed, and ERC-5564 stealth keys from a WebAuthn PRF passkey or EIP-191 signature.",
   "license": "MIT",
   "author": "Blake Duncan",
